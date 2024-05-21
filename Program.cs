@@ -1,54 +1,31 @@
 ﻿using System.Diagnostics;
 
-static void CreateTerminalAddTab(string filePath) {
-    ProcessStartInfo psi = new() {
-        FileName = "powershell.exe",
-        Arguments = "-NoExit",
-        RedirectStandardInput = true,
-        UseShellExecute = false,
-        CreateNoWindow = false
-    };
-
-    Process process = Process.Start(psi);
-
-    StreamWriter sw = process.StandardInput;
-
-    sw.WriteLine($"nvim --listen \\\\.\\pipe\\nvim {filePath}");
+static void CreateTerminalAddTab(string filePath, string pipePath) {
+    Process process = new();
+    process.StartInfo.FileName = "nvim";
+    process.StartInfo.Arguments = $"\"{filePath}\" --listen {pipePath}";
+    process.Start();
 }
 
 static void OpenTerminalAddTab(string filePath) {
-    string pythonCommand = "-c \"import pynvim; nvim=pynvim.attach('socket', path=r'\\\\.\\pipe\\nvim');" + " nvim.command(r'tabnew " + filePath + "'); nvim.close();\"";
-
     Process process = new();
     process.StartInfo.FileName = "python.exe";
-    process.StartInfo.Arguments = pythonCommand;
-    process.StartInfo.UseShellExecute = false;
-    process.StartInfo.CreateNoWindow = false;
-
+    process.StartInfo.Arguments = "-c \"import pynvim; nvim=pynvim.attach('socket', path=r'\\\\.\\pipe\\nvim');" + " nvim.command(r'tabnew " + filePath + "'); nvim.close();\"";
+    process.StartInfo.CreateNoWindow = true;
     process.Start();
-    process.WaitForExit();
-    process.Close();
 }
 
 static bool isTerminalOpen() {
-    const string executable = "python.exe";
-    const string pythonCommand = "-c \"import pynvim; nvim=pynvim.attach('socket', path=r'\\\\.\\pipe\\nvim'); nvim.close()\"";
-
     Process process = new();
-    process.StartInfo.FileName = executable;
-    process.StartInfo.Arguments = pythonCommand;
+    process.StartInfo.FileName = "python.exe";
+    process.StartInfo.Arguments = "-c \"import pynvim; nvim=pynvim.attach('socket', path=r'\\\\.\\pipe\\nvim'); nvim.close()\"";
     process.StartInfo.RedirectStandardOutput = true;
     process.StartInfo.RedirectStandardError = true;
-    process.StartInfo.UseShellExecute = false;
     process.StartInfo.CreateNoWindow = true;
-
     process.Start();
 
     StreamReader errorReader = process.StandardError;
     string errorOutput = errorReader.ReadToEnd();
-
-    process.WaitForExit();
-    process.Close();
 
     if (!string.IsNullOrEmpty(errorOutput)) {
         return false;
@@ -59,10 +36,11 @@ static bool isTerminalOpen() {
 }
 
 string filePath = Environment.GetCommandLineArgs()[1];
+string pipePath = "\\\\.\\pipe\\nvim";
 
 if (isTerminalOpen()) {
     OpenTerminalAddTab(filePath);
 }
 else {
-    CreateTerminalAddTab(filePath);
+    CreateTerminalAddTab(filePath, pipePath);
 }
