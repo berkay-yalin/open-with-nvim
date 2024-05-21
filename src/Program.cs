@@ -16,52 +16,36 @@ static Process[] getApplications() {
 
 static void CreateTerminalAddTab(string filePath, string pipePath) {
     Process process = new();
-    process.StartInfo.FileName = "nvim";
+    process.StartInfo.FileName = "nvim.exe";
     process.StartInfo.Arguments = $"\"{filePath}\" --listen {pipePath}";
     process.Start();
 }
 
-static void OpenTerminalAddTab(string filePath) {
+static void OpenTerminalAddTab(string filePath, string pipePath) {
     Process process = new();
-    process.StartInfo.FileName = "python.exe";
-    process.StartInfo.Arguments = "-c \"import pynvim; nvim=pynvim.attach('socket', path=r'\\\\.\\pipe\\nvim');" + " nvim.command(r'tabnew " + filePath + "'); nvim.close();\"";
+    process.StartInfo.FileName = "nvim.exe";
+    process.StartInfo.Arguments =$"--server {pipePath} --remote-send \":tabnew {filePath}<CR>\"";
     process.StartInfo.CreateNoWindow = true;
     process.Start();
 
     Process[] processes = getApplications();
 
     foreach (Process i in processes) {
-        if (i.ProcessName == "nvim" && i.MainWindowTitle.Contains("open-with-nvim.exe")) {
+        if (i.ProcessName == "nvim") {
             SetForegroundWindow(i.MainWindowHandle);
         }
     }
 }
 
-static bool isTerminalOpen() {
-    Process process = new();
-    process.StartInfo.FileName = "python.exe";
-    process.StartInfo.Arguments = "-c \"import pynvim; nvim=pynvim.attach('socket', path=r'\\\\.\\pipe\\nvim'); nvim.close()\"";
-    process.StartInfo.RedirectStandardOutput = true;
-    process.StartInfo.RedirectStandardError = true;
-    process.StartInfo.CreateNoWindow = true;
-    process.Start();
-
-    StreamReader errorReader = process.StandardError;
-    string errorOutput = errorReader.ReadToEnd();
-
-    if (!string.IsNullOrEmpty(errorOutput)) {
-        return false;
-    }
-    else {
-        return true;
-    }
+static bool isTerminalOpen(string pipePath) {
+    return File.Exists(pipePath);
 }
 
 string filePath = Environment.GetCommandLineArgs()[1];
-string pipePath = "\\\\.\\pipe\\nvim";
+string pipePath = @"\\.\pipe\nvim";
 
-if (isTerminalOpen()) {
-    OpenTerminalAddTab(filePath);
+if (isTerminalOpen(pipePath)) {
+    OpenTerminalAddTab(filePath, pipePath);
 }
 else {
     CreateTerminalAddTab(filePath, pipePath);
